@@ -1,0 +1,389 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Introduction &#8212; GenComp - A Compiler Generator  documentation</title>
+    <link rel="stylesheet" href="_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="nav-item nav-item-0"><a href="#">GenComp - A Compiler Generator  documentation</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="introduction">
+<h1>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h1>
+<p>GenComp is a tool for building compilers. It is entirely written in Python and is very customizable.
+The tool requires you to write a source language description. From this description of the
+source language
+it builds a scanner and a parser which will then parse a program in the given source language and take
+whatever syntactic actions are specified in the language description. The semantic actions most
+frequently would result in building an Abstract Syntax Tree (AST) for a given source language program.
+But the actions
+may result in directly interpreting the code, printing some information, or really anything that the
+language designer wants to do.</p>
+<div class="figure" id="id1">
+<img alt="_images/overview.png" src="_images/overview.png" />
+<p class="caption"><span class="caption-text"><strong>Figure 1: Overview of Compgen Components</strong></span></p>
+</div>
+<p>GenComp serves two purposes. It is a full-fledged compiler generator, although it could use a few
+enhancements that are described at the bottom of this web page. Just as importantly, GenComp serves
+as a learning tool. The algorithms contained in GenComp include:</p>
+<blockquote>
+<div><ul class="simple">
+<li>Regular Expression to NFA conversion</li>
+<li>NFA to DFA conversion</li>
+<li>DFA Minimization</li>
+<li>LR0 Machine generation</li>
+<li>Lookahead set detection</li>
+</ul>
+</div></blockquote>
+<p>The first three algorithms are used in the <em>scangen.py</em> module. The last two algorithms are employed in
+the <em>parsegen.py</em> module. Scangen and Parsegen were originally written by me in 1985 as Pascal programs
+and were rewritten in 2016 as Python programs. At that time both Scangen and Parsegen were used to make
+the <em>GenComp</em> compiler generator. While other tools like this exist, namely <em>lex</em> and <em>yacc</em> for just
+about any language platform, including Python, the <em>GenComp</em> tool serves both as a tool for building
+compilers and as a learning or teaching tool. Read on to discover how <em>GenComp</em> works.</p>
+</div>
+<div class="section" id="a-simple-one-memory-calculator">
+<h1>A Simple One Memory Calculator<a class="headerlink" href="#a-simple-one-memory-calculator" title="Permalink to this headline">¶</a></h1>
+<p>You can clone or download the github repository for the GenComp compiler generator by visiting
+<a class="reference external" href="http://github.com/kentdlee/GenComp">http://github.com/kentdlee/GenComp</a>. Once you have cloned or downloaded the repository, you can
+build the calculator example by executing</p>
+<blockquote>
+<div><em>gencomp calc.txt</em></div></blockquote>
+<p>Like the calculators you can get for free from banks, a one memory calculator is
+very simple to implement using GenComp. The calculator has a single memory
+location where a value can be stored with the <em>S</em> operator and recalled with the
+<em>R</em> operator. Interacting with the calculator looks like this. A ctl-d (may have
+to type this more than once) terminates the program.</p>
+<div class="literal-block-wrapper docutils container" id="id2">
+<div class="code-block-caption"><span class="caption-text"><strong>Figure 2: Running the Calculator</strong></span><a class="headerlink" href="#id2" title="Permalink to this code">¶</a></div>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Kent&#39;s Mac&gt; calculator
+Enter expressions with +,-,*,/,S (for store), and R (for recall) and terminated by a semicolon.
+S5*(R-1);
+20.0
+R*100;
+500.0
+Kent&#39;s Mac&gt;
+</pre></div>
+</div>
+</div>
+<p>The entire specification of the calculator interpreter appears in the next section.</p>
+</div>
+<div class="section" id="a-sample-language-specification">
+<h1>A Sample Language Specification<a class="headerlink" href="#a-sample-language-specification" title="Permalink to this headline">¶</a></h1>
+<p>The source language specification consists of four sections as seen in the
+example below. The <em>#CLASSES</em> starts the first section where classes of ASCII
+characters are defined. The characters can be defined by ASCII numeric value or
+individually with single quotes, with a range of single quoted values, or with
+comma-separated values or ranges. The comma-separated syntax is not shown in
+this example. The classes of characters may overlap. Specific sequences of
+characters are not specified in the <em>#CLASSES</em> section.</p>
+<p>The <em>#TOKENS</em> section defines the lexicon (i.e. the words) of the language. The first
+two section serve as the input into the <em>Scanner Generator</em> which generates the <em>Scanner</em> portion
+of a compiler or interpreter. The <em>Scanner</em> is used to form tokens from the individual characters
+of the input file as shown in figure 1.</p>
+<p>Skipping the description of the <em>#DEFINITIONS</em> for now, the <em>#PRODUCTIONS</em> section defines the
+grammar and the semantic actions taken when a grammar rule is reduced by the parser. The Parser section
+goes into more details about how the parser works. For now it’s sufficient to know that when a rule is
+matched in the source program, the semantic action to its right is evaluated. The semantic action is
+evaluated in the context of the code in the <em>#DEFINITIONS</em> section.</p>
+<div class="literal-block-wrapper docutils container" id="calc-txt">
+<div class="code-block-caption"><span class="caption-text"><strong>Figure 3: A Calculator Specification - calc.txt</strong></span><a class="headerlink" href="#calc-txt" title="Permalink to this code">¶</a></div>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>#CLASSES
+
+digit   = &#39;0&#39;..&#39;9&#39;;
+period = &#39;.&#39;;
+EOF = 3;
+
+#TOKENS
+
+number = (digit.digit*)|(digit.digit*.period.digit.digit*);
+&#39;(&#39;;
+&#39;)&#39;;
+&#39;+&#39;;
+&#39;-&#39;;
+&#39;*&#39;;
+&#39;/&#39;;
+&#39;S&#39;;
+&#39;R&#39;;
+&#39;;&#39;;
+endoffile = EOF;
+
+#DEFINITIONS
+
+from calcbackend import *
+
+#PRODUCTIONS
+
+Start ::= Prog endoffile                                             (Prog);
+
+Prog ::= Prog Stmt &#39;;&#39;                                               (None);
+
+Prog ::= null                                                        (None);
+
+Stmt ::= E                                                           (print(E));
+
+E ::= E &#39;+&#39; T                                                        (float(E)+float(T));
+    | E &#39;-&#39; T                                                        (float(E)-float(T));
+    | T                                                              (T);
+
+T ::= T &#39;*&#39; St                                                       (float(T)*float(St));
+    | T &#39;/&#39; St                                                       (float(T)/float(St));
+    | St                                                             (St);
+
+St ::= &#39;S&#39; F                                                         (memory.store(float(F)));
+    | F                                                              (F);
+
+F ::=  number                                                        (number);
+    | &#39;(&#39; E &#39;)&#39;                                                      (E);
+    | &#39;R&#39;                                                            (memory.recall());
+
+#END
+</pre></div>
+</div>
+</div>
+<p>In this case, the <em>#DEFINITIONS</em> section imports the code found in figure 4 below. When rules are
+matched, the semantic action to its right is evaluated. For instance, when a value is stored using
+text like “S5”, this rule is matched,</p>
+<blockquote>
+<div>St ::= ‘S’ F    (memory.store(float(F)));</div></blockquote>
+<p>and the value is stored in the memory location. NOTE: the value is also returned in figure 4
+below. Every semantic action returns a value. The value returned is the result of evaluating the
+semantic action.</p>
+<p>In the rule above, the <em>F</em> (i.e. a Factor in the grammar of expressions) must be found first. The
+rule</p>
+<blockquote>
+<div>F ::= number   (number);</div></blockquote>
+<p>is matched first to the ‘5’ that appears in the input. Note that the ‘5’ is in quotes for a reason.
+The GenComp tool only understands strings during parsing, so the ‘5’ is simply a number token,
+not a number. When
+the semantic action <em>(number)</em> is evaluated, it returns the string ‘5’.</p>
+<p>In the <em>store</em> rule above, when <em>F</em> appears in the rule, it represents the ‘5’ that was stored in this
+second rule. So, when the semantic action <em>(memory.store(float(F)))</em> is executed, the <em>float</em> is
+necessary to convert the string to a float.</p>
+<p>In the calculator interpreter that is created from these semantic actions, the second two rules are
+needed by the interpreter to be able to evaluate statements (i.e. semicolon-terminated expressions)
+in the language. They don’t have semantic actions associated with them so they return the Python value
+<em>None</em> since every rule must have a semantic action.</p>
+<div class="literal-block-wrapper docutils container" id="id3">
+<div class="code-block-caption"><span class="caption-text"><strong>Figure 4: The Calculator Backend - calcbackend.py</strong></span><a class="headerlink" href="#id3" title="Permalink to this code">¶</a></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">Memory</span><span class="p">:</span>
+  <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">mem</span> <span class="o">=</span> <span class="mi">0</span>
+
+  <span class="k">def</span> <span class="nf">store</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">val</span><span class="p">):</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">mem</span> <span class="o">=</span> <span class="n">val</span>
+    <span class="k">return</span> <span class="n">val</span>
+
+  <span class="k">def</span> <span class="nf">recall</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mem</span>
+
+<span class="n">memory</span> <span class="o">=</span> <span class="n">Memory</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<p>In figure 4 the <em>memory</em> variable is the memory of the calculator and is the one instance of the
+<em>Memory</em> class. You can see the corresponding rules
+in figure 3 where values are stored into and recalled from the <em>memory</em> location.</p>
+<div class="literal-block-wrapper docutils container" id="id4">
+<div class="code-block-caption"><span class="caption-text"><strong>Figure 5: The calc Command</strong></span><a class="headerlink" href="#id4" title="Permalink to this code">¶</a></div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="ch">#!/bin/bash</span>
+<span class="k">if</span> <span class="o">[</span> <span class="nv">$#</span> -ne <span class="m">1</span> <span class="o">]</span><span class="p">;</span>
+<span class="k">then</span>
+  <span class="nb">echo</span> <span class="s2">&quot;usage: calc filename&quot;</span>
+  <span class="nb">echo</span> <span class="s2">&quot;   Compiles or interprets filename as a program from the calc language.&quot;</span>
+  <span class="nb">echo</span> <span class="s2">&quot;   Read the gencomp documentation found in gencomp for a description of &quot;</span>
+  <span class="nb">echo</span> <span class="s2">&quot;   of a gencomp language description file.&quot;</span>
+  <span class="nb">exit</span>
+<span class="k">fi</span>
+python3 calc.py <span class="nv">$1</span>
+</pre></div>
+</div>
+</div>
+<p>The calc command shown in figure 5 is created by the GenComp tool. As you can see it invoke
+python on the <em>calc.py</em> module whose contents are shown in figure 6. The code in figure 6 is
+also automatically created by the GenComp tool.</p>
+<div class="literal-block-wrapper docutils container" id="id5">
+<div class="code-block-caption"><span class="caption-text"><strong>Figure 6: The Python calc Module - calc.py</strong></span><a class="headerlink" href="#id5" title="Permalink to this code">¶</a></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">calcscanner</span>
+<span class="kn">import</span> <span class="nn">calcparser</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+
+
+<span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">))</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">print</span><span class="p">(</span><span class="s2">&quot;usage: calc filename&quot;</span><span class="p">)</span>
+        <span class="k">print</span><span class="p">(</span><span class="s2">&quot;   calc will interpret/compile the expression in the file named&quot;</span><span class="p">)</span>
+        <span class="k">print</span><span class="p">(</span><span class="s2">&quot;   filename and print its result to standard output&quot;</span><span class="p">)</span>
+        <span class="k">return</span>
+
+    <span class="n">strm</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="s2">&quot;r&quot;</span><span class="p">)</span>
+    <span class="n">theScanner</span> <span class="o">=</span> <span class="n">calcscanner</span><span class="o">.</span><span class="n">calcScanner</span><span class="p">(</span><span class="n">strm</span><span class="p">)</span>
+    <span class="n">theParser</span> <span class="o">=</span> <span class="n">calcparser</span><span class="o">.</span><span class="n">calcParser</span><span class="p">()</span>
+
+    <span class="n">ast</span> <span class="o">=</span> <span class="n">theParser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">theScanner</span><span class="p">)</span>
+    <span class="k">print</span><span class="p">(</span><span class="n">ast</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">main</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<p>With the combination of the two programs in figures 5 and 6 you can invoke the
+caculator as</p>
+<blockquote>
+<div>calc filename.txt</div></blockquote>
+<p>where <em>filename.txt</em> is a file containing semicolon terminated expressions. However, in the case
+of the calculator interpreter it is more interesting to have a custom startup program. For that purpose
+the program in figure 7 was written, by hand this time.</p>
+<div class="literal-block-wrapper docutils container" id="id6">
+<div class="code-block-caption"><span class="caption-text"><strong>Figure 7: The calculator Custom Startup Command</strong></span><a class="headerlink" href="#id6" title="Permalink to this code">¶</a></div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="ch">#!/bin/bash</span>
+<span class="k">if</span> <span class="o">[</span> <span class="nv">$#</span> -ne <span class="m">0</span> <span class="o">]</span><span class="p">;</span>
+<span class="k">then</span>
+  <span class="nb">echo</span> <span class="s2">&quot;usage: calculator&quot;</span>
+  <span class="nb">echo</span> <span class="s2">&quot;   This runs a command-line calculator for calculating expressions&quot;</span>
+  <span class="nb">echo</span> <span class="s2">&quot;   as an example of how a parser and parser actions can be used to&quot;</span>
+  <span class="nb">echo</span> <span class="s2">&quot;   evaluate expressions as they are typed.&quot;</span>
+  <span class="nb">exit</span>
+<span class="k">fi</span>
+<span class="nb">echo</span> <span class="s2">&quot;Enter expressions with +,-,*,/,S (for store), and R (for recall) and terminated by a semicolon (i.e. ;).&quot;</span>
+python3 calculator.py
+</pre></div>
+</div>
+</div>
+<p>This startup script/program then invokes the custom Python startup program which is provided in figure
+8.</p>
+<div class="literal-block-wrapper docutils container" id="id7">
+<div class="code-block-caption"><span class="caption-text"><strong>Figure 8: The calculator Custom Python Program - calculator.py</strong></span><a class="headerlink" href="#id7" title="Permalink to this code">¶</a></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">calcscanner</span>
+<span class="kn">import</span> <span class="nn">calcparser</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+
+
+<span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
+
+    <span class="n">strm</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">stdin</span>
+    <span class="n">theScanner</span> <span class="o">=</span> <span class="n">calcscanner</span><span class="o">.</span><span class="n">calcScanner</span><span class="p">(</span><span class="n">strm</span><span class="p">)</span>
+    <span class="n">theParser</span> <span class="o">=</span> <span class="n">calcparser</span><span class="o">.</span><span class="n">calcParser</span><span class="p">()</span>
+
+    <span class="n">ast</span> <span class="o">=</span> <span class="n">theParser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">theScanner</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">main</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<p>As you can see, the code in figures 8 and 6 is nearly identical, differing in the prompt and where
+the two programs get their input. In the custom program in figure 8 the input is read from
+standard input.</p>
+</div>
+<div class="section" id="specifying-tokens">
+<h1>Specifying Tokens<a class="headerlink" href="#specifying-tokens" title="Permalink to this headline">¶</a></h1>
+<p>TBD</p>
+</div>
+<div class="section" id="writing-grammars">
+<h1>Writing Grammars<a class="headerlink" href="#writing-grammars" title="Permalink to this headline">¶</a></h1>
+<p>TBD</p>
+</div>
+<div class="section" id="creating-a-backend">
+<h1>Creating a Backend<a class="headerlink" href="#creating-a-backend" title="Permalink to this headline">¶</a></h1>
+<p>TBD</p>
+</div>
+<div class="section" id="possible-enhancements">
+<h1>Possible Enhancements<a class="headerlink" href="#possible-enhancements" title="Permalink to this headline">¶</a></h1>
+<p>There are several areas where improvements could be made to GenComp. One area is in the use of Bash
+scripts in the generated compiler startup scripts. There is no need to use Bash when you have access
+to Python. The first line of any script that runs python would be</p>
+<blockquote>
+<div>#/usr/bin/env python3</div></blockquote>
+<p>and after that you can write a python program to do anything a Bash program can do.</p>
+<p>Another key improvement, but much harder in comparison to the first, would be to extend the
+regular expression language supported by GenComp. Right now the regular expression language
+is pretty limited in its power, but it could be enhanced to more fully support the regular expressions
+of <em>lex</em>.</p>
+<div class="toctree-wrapper compound">
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="#">Table of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Introduction</a></li>
+<li><a class="reference internal" href="#a-simple-one-memory-calculator">A Simple One Memory Calculator</a></li>
+<li><a class="reference internal" href="#a-sample-language-specification">A Sample Language Specification</a></li>
+<li><a class="reference internal" href="#specifying-tokens">Specifying Tokens</a></li>
+<li><a class="reference internal" href="#writing-grammars">Writing Grammars</a></li>
+<li><a class="reference internal" href="#creating-a-backend">Creating a Backend</a></li>
+<li><a class="reference internal" href="#possible-enhancements">Possible Enhancements</a></li>
+</ul>
+
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/index.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="nav-item nav-item-0"><a href="#">GenComp - A Compiler Generator  documentation</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2020, Kent D Lee.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.8.3.
+    </div>
+  </body>
+</html>
