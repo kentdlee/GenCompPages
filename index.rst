@@ -18,7 +18,7 @@ language designer wants to do.
 
 .. figure:: overview.png
 
-  **Figure 1: Overview of Compgen Components**
+  **Figure 1: Overview of GenComp Components**
 
 GenComp serves two purposes. It is a full-fledged compiler generator, although it could use a few
 enhancements that are described at the bottom of this web page. Just as importantly, GenComp serves
